@@ -1,7 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"CarDealership/simple_connection"
+)
 
 func main() {
-	fmt.Println("Hello World!")
+	simple_connection.CreateConnection()
 }
