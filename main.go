@@ -52,10 +52,16 @@ func main() {
 	port := ":8080"
 	fmt.Printf("Сервер успешно запущен на http://localhost:8080")
 	fmt.Println("Доступные эндпоинты:")
-	fmt.Println("GET /api/cars          - Получить список всех машин")
-	fmt.Println("GET /api/cars/{id}     - Получить автомобиль по его идентификатору")
-	fmt.Println("GET /api/dealers       - Получить всех диллеров")
-	fmt.Println("GET /api/dealers/{id}  - Получить диллера по его идентификатору")
+	fmt.Println("  GET    /api/cars          - Получить список всех машин")
+	fmt.Println("  GET    /api/cars/{id}     - Получить автомобиль по его идентификатору")
+	fmt.Println("  POST   /api/cars          - Создать новый автомобиль")
+	fmt.Println("  PUT    /api/cars/{id}     - Обновить автомобиль по ID")
+	fmt.Println("  DELETE /api/cars/{id}     - Удалить автомобиль по ID")
+	fmt.Println("  GET    /api/dealers       - Получить всех дилеров")
+	fmt.Println("  GET    /api/dealers/{id}  - олучить дилера по его идентификатору")
+	fmt.Println("  POST   /api/dealers       - Создать нового дилера")
+	fmt.Println("  PUT    /api/dealers/{id}  - Обновить дилера по ID")
+	fmt.Println("  DELETE /api/dealers/{id}  - Удалить дилера по ID")
 
 	log.Fatal(http.ListenAndServe(port, nil))
 }
