@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"CarDealership/database/models"
+	"CarDealership/messaging"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -11,7 +12,8 @@ import (
 )
 
 type CarsHandler struct {
-	DB *pgx.Conn
+	DB     *pgx.Conn
+	Rabbit *messaging.RabbitMQ
 }
 
 func NewCarsHandler(db *pgx.Conn) *CarsHandler {
@@ -145,6 +147,12 @@ func (h *CarsHandler) CreateCar(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(createdCar)
+
+	h.Rabbit.PublishEvent(messaging.CarEvent{
+		EventType: "CREATE",
+		Car:       createdCar,
+	})
+
 }
 
 // UpdateCar обновляет существующий автомобиль (PUT)
@@ -238,6 +246,12 @@ func (h *CarsHandler) UpdateCar(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updatedCar)
+
+	h.Rabbit.PublishEvent(messaging.CarEvent{
+		EventType: "UPDATE",
+		Car:       updatedCar,
+	})
+
 }
 
 // DeleteCar удаляет автомобиль по ID (DELETE)
@@ -283,6 +297,13 @@ func (h *CarsHandler) DeleteCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var car models.Car
+	err = h.DB.QueryRow(ctx,
+		"SELECT id, firm, model, year, power, color, price, dealer_id FROM cars WHERE id = $1",
+		id,
+	).Scan(&car.ID, &car.Firm, &car.Model, &car.Year,
+		&car.Power, &car.Color, &car.Price, &car.DealerID)
+
 	// Удаляем запись
 	result, err := h.DB.Exec(ctx, "DELETE FROM cars WHERE id = $1", id)
 	if err != nil {
@@ -299,4 +320,10 @@ func (h *CarsHandler) DeleteCar(w http.ResponseWriter, r *http.Request) {
 
 	// Возвращаем успешный ответ без тела
 	w.WriteHeader(http.StatusNoContent)
+
+	h.Rabbit.PublishEvent(messaging.CarEvent{
+		EventType: "DELETE",
+		Car:       car,
+	})
+
 }
