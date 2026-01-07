@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Car API Frontend</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+        }
+        
+        h1 {
+            color: #333;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .btn-edit {
+            background: #28a745;
+        }
+        
+        .btn-delete {
+            background: #dc3545;
+        }
+        
+        .car {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: white;
+        }
+        
+        .car h3 {
+            margin-top: 0;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 20px;
+            margin: 100px auto;
+            width: 400px;
+            border-radius: 5px;
+        }
+        
+        .form-group {
+            margin: 10px 0;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .form-group input {
+            width: 95%;
+            padding: 8px;
+        }
+        
+        .error {
+            color: red;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Car Dealership API</h1>
+    
+    <div class="controls">
+        <input type="text" id="searchId" placeholder="Enter Car ID">
+        <button onclick="getCarById()">Find Car</button>
+        <button onclick="getAllCars()">All Cars</button>
+        <button onclick="showAddForm()">Add Car</button>
+    </div>
+    
+    <div id="message"></div>
+    
+    <div id="carsList">
+        Loading cars...
+    </div>
+    
+    <!-- Modal for add/edit -->
+    <div id="carModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Add Car</h2>
+            <form id="carForm">
+                <div class="form-group">
+                    <label>Firm:</label>
+                    <input type="text" id="firm" required>
+                </div>
+                <div class="form-group">
+                    <label>Model:</label>
+                    <input type="text" id="model" required>
+                </div>
+                <div class="form-group">
+                    <label>Year:</label>
+                    <input type="number" id="year" required>
+                </div>
+                <div class="form-group">
+                    <label>Power:</label>
+                    <input type="number" id="power" required>
+                </div>
+                <div class="form-group">
+                    <label>Color:</label>
+                    <input type="text" id="color" required>
+                </div>
+                <div class="form-group">
+                    <label>Price:</label>
+                    <input type="number" id="price" required>
+                </div>
+                <div class="form-group">
+                    <label>Dealer ID:</label>
+                    <input type="number" id="dealer_id" required>
+                </div>
+                <div>
+                    <button type="submit" id="submitBtn">Create</button>
+                    <button type="button" onclick="closeModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080/api/cars';
+        let editingCarId = null;
+        
+        // Load all cars on start
+        window.onload = getAllCars;
+        
+        // GET - all cars
+        async function getAllCars() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('HTTP error: ' + response.status);
+                
+                const cars = await response.json();
+                displayCars(cars);
+                showMessage(`Loaded ${cars.length} cars`, 'success');
+            } catch (error) {
+                showMessage('Error loading cars: ' + error.message, 'error');
+            }
+        }
+        
+        // GET - car by ID
+        async function getCarById() {
+            const id = document.getElementById('searchId').value;
+            if (!id) {
+                showMessage('Please enter car ID', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/${id}`);
+                if (!response.ok) {
+                    if (response.status === 404) throw new Error('Car not found');
+                    throw new Error('HTTP error: ' + response.status);
+                }
+                
+                const car = await response.json();
+                displayCars([car]);
+                showMessage('Car found', 'success');
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // POST - create car
+        async function createCar(carData) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(carData)
+                });
+                
+                if (!response.ok) throw new Error('HTTP error: ' + response.status);
+                
+                showMessage('Car created successfully!', 'success');
+                getAllCars();
+                closeModal();
+            } catch (error) {
+                showMessage('Error creating car: ' + error.message, 'error');
+            }
+        }
+        
+        // PUT - update car
+        async function updateCar(id, carData) {
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(carData)
+                });
+                
+                if (!response.ok) throw new Error('HTTP error: ' + response.status);
+                
+                showMessage('Car updated successfully!', 'success');
+                getAllCars();
+                closeModal();
+            } catch (error) {
+                showMessage('Error updating car: ' + error.message, 'error');
+            }
+        }
+        
+        // DELETE - delete car
+        async function deleteCar(id) {
+            if (!confirm('Delete this car?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) throw new Error('HTTP error: ' + response.status);
+                
+                showMessage('Car deleted successfully!', 'success');
+                getAllCars();
+            } catch (error) {
+                showMessage('Error deleting car: ' + error.message, 'error');
+            }
+        }
+        
+        // Display cars
+        function displayCars(cars) {
+            const container = document.getElementById('carsList');
+            
+            if (!cars || cars.length === 0) {
+                container.innerHTML = 'No cars found';
+                return;
+            }
+            
+            container.innerHTML = cars.map(car => `
+                <div class="car">
+                    <h3>${car.firm} ${car.model} (ID: ${car.id})</h3>
+                    <p><strong>Year:</strong> ${car.year}</p>
+                    <p><strong>Power:</strong> ${car.power} HP</p>
+                    <p><strong>Color:</strong> ${car.color}</p>
+                    <p><strong>Price:</strong> $${car.price}</p>
+                    <p><strong>Dealer ID:</strong> ${car.dealer_id}</p>
+                    <div>
+                        <button class="btn-edit" onclick="editCar(${car.id})">Edit</button>
+                        <button class="btn-delete" onclick="deleteCar(${car.id})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Edit car
+        async function editCar(id) {
+            try {
+                const response = await fetch(`${API_URL}/${id}`);
+                if (!response.ok) throw new Error('HTTP error: ' + response.status);
+                
+                const car = await response.json();
+                
+                editingCarId = id;
+                document.getElementById('modalTitle').textContent = 'Edit Car';
+                document.getElementById('submitBtn').textContent = 'Update';
+                
+                document.getElementById('firm').value = car.firm;
+                document.getElementById('model').value = car.model;
+                document.getElementById('year').value = car.year;
+                document.getElementById('power').value = car.power;
+                document.getElementById('color').value = car.color;
+                document.getElementById('price').value = car.price;
+                document.getElementById('dealer_id').value = car.dealer_id;
+                
+                document.getElementById('carModal').style.display = 'block';
+            } catch (error) {
+                showMessage('Error loading car: ' + error.message, 'error');
+            }
+        }
+        
+        // Show add form
+        function showAddForm() {
+            editingCarId = null;
+            document.getElementById('modalTitle').textContent = 'Add Car';
+            document.getElementById('submitBtn').textContent = 'Create';
+            document.getElementById('carForm').reset();
+            document.getElementById('carModal').style.display = 'block';
+        }
+        
+        // Close modal
+        function closeModal() {
+            document.getElementById('carModal').style.display = 'none';
+        }
+        
+        // Show message
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = `<div class="${type}">${text}</div>`;
+            setTimeout(() => messageDiv.innerHTML = '', 3000);
+        }
+        
+        // Form submit
+        document.getElementById('carForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const carData = {
+                firm: document.getElementById('firm').value,
+                model: document.getElementById('model').value,
+                year: parseInt(document.getElementById('year').value),
+                power: parseInt(document.getElementById('power').value),
+                color: document.getElementById('color').value,
+                price: parseInt(document.getElementById('price').value),
+                dealer_id: parseInt(document.getElementById('dealer_id').value)
+            };
+            
+            if (editingCarId) {
+                updateCar(editingCarId, carData);
+            } else {
+                createCar(carData);
+            }
+        });
+        
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modal = document.getElementById('carModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

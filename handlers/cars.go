@@ -9,14 +9,15 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type CarsHandler struct {
-	DB     *pgx.Conn
+	DB     *pgxpool.Pool
 	Rabbit *messaging.RabbitMQ
 }
 
-func NewCarsHandler(db *pgx.Conn) *CarsHandler {
+func NewCarsHandler(db *pgxpool.Pool) *CarsHandler {
 	return &CarsHandler{DB: db}
 }
 
@@ -24,8 +25,16 @@ func NewCarsHandler(db *pgx.Conn) *CarsHandler {
 func (h *CarsHandler) GetAllCars(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	rows, err := h.DB.Query(ctx,
-		"SELECT id, firm, model, year, power, color, price, dealer_id FROM cars")
+	// Получаем соединение из пула
+	conn, err := h.DB.Acquire(ctx)
+	if err != nil {
+		http.Error(w, "Не удалось получить соединение с БД: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer conn.Release()
+
+	rows, err := conn.Query(ctx,
+		"SELECT id, firm, model, year, power, color, price, dealer_id FROM cars ORDER BY id")
 	if err != nil {
 		http.Error(w, "Не удалось извлечь автомобили: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -37,17 +46,18 @@ func (h *CarsHandler) GetAllCars(w http.ResponseWriter, r *http.Request) {
 		var car models.Car
 		if err := rows.Scan(&car.ID, &car.Firm, &car.Model, &car.Year,
 			&car.Power, &car.Color, &car.Price, &car.DealerID); err != nil {
-			http.Error(w, "Не удалось найти автомобиль: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Ошибка чтения данных автомобиля: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		cars = append(cars, car)
 	}
 
 	if err := rows.Err(); err != nil {
-		http.Error(w, "Ошибка итерации автомобилей: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Ошибка обработки результатов: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cars)
 }
@@ -76,8 +86,16 @@ func (h *CarsHandler) GetCarByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем соединение из пула
+	conn, err := h.DB.Acquire(ctx)
+	if err != nil {
+		http.Error(w, "Не удалось получить соединение с БД: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer conn.Release()
+
 	var car models.Car
-	err = h.DB.QueryRow(ctx,
+	err = conn.QueryRow(ctx,
 		"SELECT id, firm, model, year, power, color, price, dealer_id FROM cars WHERE id = $1", id).
 		Scan(&car.ID, &car.Firm, &car.Model, &car.Year,
 			&car.Power, &car.Color, &car.Price, &car.DealerID)
@@ -91,6 +109,7 @@ func (h *CarsHandler) GetCarByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(car)
 }
@@ -118,9 +137,17 @@ func (h *CarsHandler) CreateCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем соединение из пула
+	conn, err := h.DB.Acquire(ctx)
+	if err != nil {
+		http.Error(w, "Не удалось получить соединение с БД: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer conn.Release()
+
 	// Вставляем новую запись в БД и получаем ID
 	var id int
-	err := h.DB.QueryRow(ctx,
+	err = conn.QueryRow(ctx,
 		`INSERT INTO cars (firm, model, year, power, color, price, dealer_id) 
 		 VALUES ($1, $2, $3, $4, $5, $6, $7) 
 		 RETURNING id`,
@@ -144,15 +171,17 @@ func (h *CarsHandler) CreateCar(w http.ResponseWriter, r *http.Request) {
 		DealerID: car.DealerID,
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(createdCar)
 
-	h.Rabbit.PublishEvent(messaging.CarEvent{
-		EventType: "CREATE",
-		Car:       createdCar,
-	})
-
+	if h.Rabbit != nil {
+		h.Rabbit.PublishEvent(messaging.CarEvent{
+			EventType: "CREATE",
+			Car:       createdCar,
+		})
+	}
 }
 
 // UpdateCar обновляет существующий автомобиль (PUT)
@@ -199,9 +228,17 @@ func (h *CarsHandler) UpdateCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем соединение из пула
+	conn, err := h.DB.Acquire(ctx)
+	if err != nil {
+		http.Error(w, "Не удалось получить соединение с БД: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer conn.Release()
+
 	// Проверяем существует ли автомобиль
 	var exists bool
-	err = h.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM cars WHERE id = $1)", id).Scan(&exists)
+	err = conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM cars WHERE id = $1)", id).Scan(&exists)
 	if err != nil {
 		http.Error(w, "Ошибка базы данных: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -213,7 +250,7 @@ func (h *CarsHandler) UpdateCar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Обновляем запись
-	result, err := h.DB.Exec(ctx,
+	result, err := conn.Exec(ctx,
 		`UPDATE cars 
 		 SET firm = $1, model = $2, year = $3, power = $4, color = $5, price = $6, dealer_id = $7
 		 WHERE id = $8`,
@@ -244,14 +281,16 @@ func (h *CarsHandler) UpdateCar(w http.ResponseWriter, r *http.Request) {
 		DealerID: car.DealerID,
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updatedCar)
 
-	h.Rabbit.PublishEvent(messaging.CarEvent{
-		EventType: "UPDATE",
-		Car:       updatedCar,
-	})
-
+	if h.Rabbit != nil {
+		h.Rabbit.PublishEvent(messaging.CarEvent{
+			EventType: "UPDATE",
+			Car:       updatedCar,
+		})
+	}
 }
 
 // DeleteCar удаляет автомобиль по ID (DELETE)
@@ -284,9 +323,25 @@ func (h *CarsHandler) DeleteCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем соединение из пула
+	conn, err := h.DB.Acquire(ctx)
+	if err != nil {
+		http.Error(w, "Не удалось получить соединение с БД: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer conn.Release()
+
+	// Сначала получаем данные автомобиля для RabbitMQ
+	var car models.Car
+	err = conn.QueryRow(ctx,
+		"SELECT id, firm, model, year, power, color, price, dealer_id FROM cars WHERE id = $1",
+		id,
+	).Scan(&car.ID, &car.Firm, &car.Model, &car.Year,
+		&car.Power, &car.Color, &car.Price, &car.DealerID)
+
 	// Проверяем существует ли автомобиль
 	var exists bool
-	err = h.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM cars WHERE id = $1)", id).Scan(&exists)
+	err = conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM cars WHERE id = $1)", id).Scan(&exists)
 	if err != nil {
 		http.Error(w, "Ошибка базы данных: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -297,15 +352,8 @@ func (h *CarsHandler) DeleteCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var car models.Car
-	err = h.DB.QueryRow(ctx,
-		"SELECT id, firm, model, year, power, color, price, dealer_id FROM cars WHERE id = $1",
-		id,
-	).Scan(&car.ID, &car.Firm, &car.Model, &car.Year,
-		&car.Power, &car.Color, &car.Price, &car.DealerID)
-
 	// Удаляем запись
-	result, err := h.DB.Exec(ctx, "DELETE FROM cars WHERE id = $1", id)
+	result, err := conn.Exec(ctx, "DELETE FROM cars WHERE id = $1", id)
 	if err != nil {
 		http.Error(w, "Ошибка при удалении автомобиля: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -319,11 +367,13 @@ func (h *CarsHandler) DeleteCar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Возвращаем успешный ответ без тела
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusNoContent)
 
-	h.Rabbit.PublishEvent(messaging.CarEvent{
-		EventType: "DELETE",
-		Car:       car,
-	})
-
+	if h.Rabbit != nil {
+		h.Rabbit.PublishEvent(messaging.CarEvent{
+			EventType: "DELETE",
+			Car:       car,
+		})
+	}
 }

@@ -37,7 +37,7 @@ func ImportData(ctx context.Context, conn *pgx.Conn, carsFile string, dealersFil
 		dealerIDs[i] = id
 	}
 
-	fmt.Printf("Добавлено %d дилеров\n", len(dealers))
+	fmt.Printf("✅ Добавлено %d дилеров\n", len(dealers))
 
 	// Вставляем машины, распределяя их по дилерам
 	for i, car := range cars {
@@ -56,6 +56,6 @@ func ImportData(ctx context.Context, conn *pgx.Conn, carsFile string, dealersFil
 		}
 	}
 
-	fmt.Printf("Добавлено %d машин\n", len(cars))
+	fmt.Printf("✅ Добавлено %d машин\n", len(cars))
 	return nil
 }
