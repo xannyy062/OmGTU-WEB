@@ -46,6 +46,7 @@ func (h *DealersHandler) GetAllDealers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(dealers)
 }
@@ -89,6 +90,7 @@ func (h *DealersHandler) GetDealerByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(dealer)
 }
@@ -146,6 +148,7 @@ func (h *DealersHandler) CreateDealer(w http.ResponseWriter, r *http.Request) {
 		Rating:  dealer.Rating,
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(createdDealer)
@@ -244,6 +247,7 @@ func (h *DealersHandler) UpdateDealer(w http.ResponseWriter, r *http.Request) {
 		Rating:  dealer.Rating,
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updatedDealer)
 }
@@ -306,5 +310,6 @@ func (h *DealersHandler) DeleteDealer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Возвращаем успешный ответ без тела
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -48,6 +48,7 @@ func (h *CarsHandler) GetAllCars(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cars)
 }
@@ -91,6 +92,7 @@ func (h *CarsHandler) GetCarByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(car)
 }
@@ -144,15 +146,17 @@ func (h *CarsHandler) CreateCar(w http.ResponseWriter, r *http.Request) {
 		DealerID: car.DealerID,
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(createdCar)
 
-	h.Rabbit.PublishEvent(messaging.CarEvent{
-		EventType: "CREATE",
-		Car:       createdCar,
-	})
-
+	if h.Rabbit != nil {
+		h.Rabbit.PublishEvent(messaging.CarEvent{
+			EventType: "CREATE",
+			Car:       createdCar,
+		})
+	}
 }
 
 // UpdateCar обновляет существующий автомобиль (PUT)
@@ -244,14 +248,16 @@ func (h *CarsHandler) UpdateCar(w http.ResponseWriter, r *http.Request) {
 		DealerID: car.DealerID,
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updatedCar)
 
-	h.Rabbit.PublishEvent(messaging.CarEvent{
-		EventType: "UPDATE",
-		Car:       updatedCar,
-	})
-
+	if h.Rabbit != nil {
+		h.Rabbit.PublishEvent(messaging.CarEvent{
+			EventType: "UPDATE",
+			Car:       updatedCar,
+		})
+	}
 }
 
 // DeleteCar удаляет автомобиль по ID (DELETE)
@@ -319,11 +325,13 @@ func (h *CarsHandler) DeleteCar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Возвращаем успешный ответ без тела
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusNoContent)
 
-	h.Rabbit.PublishEvent(messaging.CarEvent{
-		EventType: "DELETE",
-		Car:       car,
-	})
-
+	if h.Rabbit != nil {
+		h.Rabbit.PublishEvent(messaging.CarEvent{
+			EventType: "DELETE",
+			Car:       car,
+		})
+	}
 }

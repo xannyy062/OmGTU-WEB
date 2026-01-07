@@ -8,6 +8,16 @@ import (
 func SetupRoutes(carsHandler *handlers.CarsHandler, dealersHandler *handlers.DealersHandler) {
 	// Обработчики для автомобилей
 	http.HandleFunc("/api/cars", func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		switch r.Method {
 		case http.MethodGet:
 			// Проверяем, запрашивается ли конкретный автомобиль
@@ -27,6 +37,16 @@ func SetupRoutes(carsHandler *handlers.CarsHandler, dealersHandler *handlers.Dea
 
 	// Отдельный обработчик для PUT и DELETE автомобилей
 	http.HandleFunc("/api/cars/", func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		switch r.Method {
 		case http.MethodGet:
 			carsHandler.GetCarByID(w, r)
@@ -41,6 +61,16 @@ func SetupRoutes(carsHandler *handlers.CarsHandler, dealersHandler *handlers.Dea
 
 	// Обработчики для дилеров
 	http.HandleFunc("/api/dealers", func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		switch r.Method {
 		case http.MethodGet:
 			// Проверяем, запрашивается ли конкретный дилер
@@ -58,6 +88,16 @@ func SetupRoutes(carsHandler *handlers.CarsHandler, dealersHandler *handlers.Dea
 
 	// Отдельный обработчик для PUT и DELETE дилеров
 	http.HandleFunc("/api/dealers/", func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		switch r.Method {
 		case http.MethodGet:
 			dealersHandler.GetDealerByID(w, r)

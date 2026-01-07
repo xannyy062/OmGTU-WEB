@@ -17,6 +17,22 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// CORS Middleware
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	ctx := context.Background()
 	conn, err := connection.CreateConnection(ctx)
@@ -52,9 +68,13 @@ func main() {
 	// Роутер
 	router.SetupRoutes(carsHandler, dealersHandler)
 
+	// Оборачиваем все обработчики в CORS middleware
+	handler := enableCORS(http.DefaultServeMux)
+
 	// Запуск сервера
 	port := ":8080"
-	fmt.Printf("Сервер успешно запущен на http://localhost:8080\n")
+	fmt.Printf("Сервер успешно запущен на http://localhost%s\n", port)
+	fmt.Println("CORS включен для всех доменов")
 	fmt.Println("Доступные эндпоинты:")
 	fmt.Println("  GET    /api/cars          - Получить список всех машин")
 	fmt.Println("  GET    /api/cars/{id}     - Получить автомобиль по его идентификатору")
@@ -67,7 +87,7 @@ func main() {
 	fmt.Println("  PUT    /api/dealers/{id}  - Обновить дилера по ID")
 	fmt.Println("  DELETE /api/dealers/{id}  - Удалить дилера по ID")
 
-	log.Fatal(http.ListenAndServe(port, nil))
+	log.Fatal(http.ListenAndServe(port, handler))
 }
 
 // importDataIfNeeded проверяет, есть ли данные в БД, и импортирует их если таблицы пустые
