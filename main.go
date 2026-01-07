@@ -5,6 +5,7 @@ import (
 	"CarDealership/database/importer"
 	"CarDealership/database/simple_sql"
 	"CarDealership/handlers"
+	"CarDealership/messaging"
 	"CarDealership/router"
 	"context"
 	"fmt"
@@ -23,6 +24,12 @@ func main() {
 		panic(err)
 	}
 
+	rmq, err := messaging.NewRabbitMQ()
+	if err != nil {
+		log.Fatal("RabbitMQ connection error:", err)
+	}
+	defer rmq.Close()
+
 	defer conn.Close(ctx)
 
 	fmt.Println("База данных успешно подключена!")
@@ -38,6 +45,8 @@ func main() {
 
 	// Хендлеры для cars и для dealers
 	carsHandler := handlers.NewCarsHandler(conn)
+	carsHandler.Rabbit = rmq
+
 	dealersHandler := handlers.NewDealersHandler(conn)
 
 	// Роутер
